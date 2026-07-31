@@ -1,0 +1,507 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  SERVER
+  KITCHEN
+  BARTENDER
+}
+
+enum TableShape {
+  RECTANGLE
+  CIRCLE
+  SQUARE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderType {
+  DINE_IN
+  TO_GO
+  DELIVERY
+  BAR
+}
+
+enum OrderStatus {
+  OPEN
+  SENT_TO_KITCHEN
+  IN_PROGRESS
+  READY
+  PAID
+  VOIDED
+  REFUNDED
+}
+
+enum ItemStatus {
+  PENDING
+  SENT
+  IN_PROGRESS
+  READY
+  DELIVERED
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  GIFT_CARD
+  CHECK
+  COMP
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+  COMP
+}
+
+enum PrinterType {
+  RECEIPT
+  KITCHEN
+  BAR
+  LABEL
+}
+
+enum PlanTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Organization {
+  id                   Int                @id @default(autoincrement())
+  name                 String
+  slug                 String             @unique
+  email                String
+  phone                String?
+  planTier             PlanTier           @default(STARTER)
+  subscriptionStatus   SubscriptionStatus @default(TRIALING)
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  isActive             Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  users          User[]
+  tables         Table[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  modifierGroups ModifierGroup[]
+  orders         Order[]
+  payments       Payment[]
+  discounts      Discount[]
+  shifts         Shift[]
+  inventoryItems InventoryItem[]
+  customers      Customer[]
+  auditLogs      AuditLog[]
+  printers       Printer[]
+  settings       Setting[]
+
+  @@index([slug])
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  username       String
+  email          String?  @unique
+  googleId       String?  @unique
+  pin            String   // bcrypt hashed 4-digit PIN
+  password       String   // bcrypt hashed password for web/admin access
+  firstName      String
+  lastName       String
+  role           Role     @default(SERVER)
+  isActive       Boolean  @default(true)
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  orders       Order[]
+  shifts       Shift[]
+  auditLogs    AuditLog[]
+  payments     Payment[]
+
+  @@unique([organizationId, username])
+  @@index([username])
+  @@index([role])
+  @@index([organizationId])
+}
+
+model Table {
+  id             Int         @id @default(autoincrement())
+  organizationId Int
+  name           String
+  capacity       Int
+  section        String?
+  posX           Float       @default(0)
+  posY           Float       @default(0)
+  width          Float       @default(120)
+  height         Float       @default(80)
+  shape          TableShape  @default(RECTANGLE)
+  status         TableStatus @default(AVAILABLE)
+  isActive       Boolean     @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  orders       Order[]
+
+  @@index([status])
+  @@index([section])
+  @@index([organizationId])
+}
+
+model MenuCategory {
+  id             Int     @id @default(autoincrement())
+  organizationId Int
+  name           String
+  description    String?
+  color          String? @default("#1976d2")
+  icon           String?
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  items        MenuItem[]
+
+  @@index([organizationId])
+}
+
+model MenuItem {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int
+  name            String
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  cost            Decimal? @db.Decimal(10, 2)
+  categoryId      Int
+  imageUrl        String?
+  sku             String?
+  isActive        Boolean  @default(true)
+  isTaxable       Boolean  @default(true)
+  taxRate         Decimal? @db.Decimal(5, 4)
+  sortOrder       Int      @default(0)
+  trackInventory  Boolean  @default(false)
+  inventoryCount  Decimal? @db.Decimal(10, 2)
+  calories        Int?
+  allergens       String?
+  isPopular       Boolean  @default(false)
+  isAvailable     Boolean  @default(true)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id])
+  category        MenuCategory    @relation(fields: [categoryId], references: [id])
+  modifierGroups  ModifierGroupOnItem[]
+  orderItems      OrderItem[]
+  inventoryItems  InventoryItem[]
+
+  @@unique([organizationId, sku])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([organizationId])
+}
+
+model ModifierGroup {
+  id             Int     @id @default(autoincrement())
+  organizationId Int
+  name           String
+  required       Boolean @default(false)
+  multiSelect    Boolean @default(true)
+  minSelect      Int     @default(0)
+  maxSelect      Int?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  modifiers    ModifierGroupOnItem[]
+  items        Modifier[]
+
+  @@index([organizationId])
+}
+
+model ModifierGroupOnItem {
+  menuItemId      Int
+  modifierGroupId Int
+  sortOrder       Int @default(0)
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id])
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id])
+
+  @@id([menuItemId, modifierGroupId])
+}
+
+model Modifier {
+  id            Int           @id @default(autoincrement())
+  name          String
+  price         Decimal       @default(0) @db.Decimal(10, 2)
+  groupId       Int
+  isActive      Boolean       @default(true)
+  sortOrder     Int           @default(0)
+
+  group         ModifierGroup     @relation(fields: [groupId], references: [id])
+  orderItemMods OrderItemModifier[]
+
+  @@index([groupId])
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  organizationId Int
+  orderNumber    String
+  type           OrderType   @default(DINE_IN)
+  status         OrderStatus @default(OPEN)
+  tableId        Int?
+  serverId       Int?
+  customerId     Int?
+  customerName   String?
+  customerPhone  String?
+  guestCount     Int?        @default(1)
+  notes          String?
+  subtotal       Decimal     @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal     @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal     @default(0) @db.Decimal(10, 2)
+  tipAmount      Decimal     @default(0) @db.Decimal(10, 2)
+  total          Decimal     @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  closedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  table     Table?    @relation(fields: [tableId], references: [id])
+  server    User?     @relation(fields: [serverId], references: [id])
+  customer  Customer? @relation(fields: [customerId], references: [id])
+
+  items     OrderItem[]
+  payments  Payment[]
+  discounts OrderDiscount[]
+
+  @@unique([organizationId, orderNumber])
+  @@index([status])
+  @@index([tableId])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@index([organizationId])
+}
+
+model OrderItem {
+  id         Int        @id @default(autoincrement())
+  orderId    Int
+  menuItemId Int
+  quantity   Int        @default(1)
+  unitPrice  Decimal    @db.Decimal(10, 2)
+  notes      String?
+  status     ItemStatus @default(PENDING)
+  course     Int        @default(1)
+  sentAt     DateTime?
+  voidedAt   DateTime?
+  voidReason String?
+
+  order     Order      @relation(fields: [orderId], references: [id])
+  menuItem  MenuItem   @relation(fields: [menuItemId], references: [id])
+  modifiers OrderItemModifier[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model OrderItemModifier {
+  id          Int     @id @default(autoincrement())
+  orderItemId Int
+  modifierId  Int
+  price       Decimal @db.Decimal(10, 2)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  modifier  Modifier  @relation(fields: [modifierId], references: [id])
+
+  @@index([orderItemId])
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  organizationId Int
+  orderId        Int
+  method         PaymentMethod
+  amount        Decimal       @db.Decimal(10, 2)
+  tip           Decimal       @default(0) @db.Decimal(10, 2)
+  cashTendered  Decimal?      @db.Decimal(10, 2)
+  changeGiven   Decimal?      @db.Decimal(10, 2)
+  reference     String?
+  last4         String?
+  processedById Int
+  createdAt     DateTime      @default(now())
+  isRefunded    Boolean       @default(false)
+  refundedAt    DateTime?
+  refundAmount  Decimal?      @db.Decimal(10, 2)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  order       Order @relation(fields: [orderId], references: [id])
+  processedBy User  @relation(fields: [processedById], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+model Discount {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  name           String
+  type           DiscountType
+  value          Decimal      @db.Decimal(10, 2)
+  code           String?
+  isActive       Boolean      @default(true)
+  requiresPin    Boolean      @default(false)
+  minOrder       Decimal?     @db.Decimal(10, 2)
+  description    String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  orderDiscounts OrderDiscount[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model OrderDiscount {
+  id         Int     @id @default(autoincrement())
+  orderId    Int
+  discountId Int
+  amount     Decimal @db.Decimal(10, 2)
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  discount Discount @relation(fields: [discountId], references: [id])
+
+  @@index([orderId])
+}
+
+model Shift {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  clockIn        DateTime  @default(now())
+  clockOut       DateTime?
+  cashDrawer     Decimal?  @db.Decimal(10, 2)
+  closingCash    Decimal?  @db.Decimal(10, 2)
+  notes          String?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([clockIn])
+  @@index([organizationId])
+}
+
+model InventoryItem {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  menuItemId     Int?
+  customName     String?
+  customSku      String?
+  quantity       Decimal  @db.Decimal(10, 2)
+  unit           String   @default("units")
+  lowThreshold   Decimal? @db.Decimal(10, 2)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  menuItem     MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@unique([menuItemId])
+  @@index([organizationId])
+}
+
+model Customer {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  firstName      String
+  lastName       String?
+  email          String?
+  phone          String?
+  points         Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  orders       Order[]
+
+  @@unique([organizationId, email])
+  @@unique([organizationId, phone])
+  @@index([phone])
+  @@index([email])
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?
+  userId         Int?
+  action         String
+  entity         String
+  entityId       String?
+  details        Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  user         User?         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+model Printer {
+  id             Int         @id @default(autoincrement())
+  organizationId Int
+  name           String
+  type           PrinterType
+  ipAddress      String?
+  port           Int?        @default(9100)
+  isDefault      Boolean     @default(false)
+  isActive       Boolean     @default(true)
+  interface      String      @default("tcp") // tcp | usb | bluetooth
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+model Setting {
+  id             Int    @id @default(autoincrement())
+  organizationId Int
+  key            String
+  value          String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
+  @@index([key])
+  @@index([organizationId])
+}

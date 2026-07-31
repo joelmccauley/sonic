@@ -1,0 +1,38 @@
+import { Router } from 'express';
+import { authRoutes } from './auth.routes';
+import { tablesRoutes } from './tables.routes';
+import { ordersRoutes } from './orders.routes';
+import { menuRoutes } from './menu.routes';
+import { employeesRoutes } from './employees.routes';
+import { paymentsRoutes } from './payments.routes';
+import { reportsRoutes } from './reports.routes';
+import { inventoryRoutes } from './inventory.routes';
+import { customersRoutes } from './customers.routes';
+import { discountsRoutes } from './discounts.routes';
+import { shiftsRoutes } from './shifts.routes';
+import { settingsRoutes } from './settings.routes';
+import { printerRoutes } from './printers.routes';
+import { auditRoutes } from './audit.routes';
+import { billingRoutes } from './billing.routes';
+import { platformAuthRoutes } from './platformAuth.routes';
+import { platformRoutes } from './platform.routes';
+
+export const apiRouter = Router();
+
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/platform/auth', platformAuthRoutes);
+apiRouter.use('/platform/admin', platformRoutes);
+apiRouter.use('/billing', billingRoutes);
+apiRouter.use('/tables', tablesRoutes);
+apiRouter.use('/orders', ordersRoutes);
+apiRouter.use('/menu', menuRoutes);
+apiRouter.use('/employees', employeesRoutes);
+apiRouter.use('/payments', paymentsRoutes);
+apiRouter.use('/reports', reportsRoutes);
+apiRouter.use('/inventory', inventoryRoutes);
+apiRouter.use('/customers', customersRoutes);
+apiRouter.use('/discounts', discountsRoutes);
+apiRouter.use('/shifts', shiftsRoutes);
+apiRouter.use('/settings', settingsRoutes);
+apiRouter.use('/printers', printerRoutes);
+apiRouter.use('/audit', auditRoutes);
