@@ -10,8 +10,11 @@ import POSPage from './pages/POSPage';
 import KDSPage from './pages/KDSPage';
 import AdminPage from './pages/AdminPage';
 import FloorViewPage from './pages/FloorViewPage';
+import MyActivityPage from './pages/MyActivityPage';
+import MyActivityDetailPage from './pages/MyActivityDetailPage';
 import PlatformAdminLoginPage from './pages/PlatformAdminLoginPage';
 import PlatformAdminDashboardPage from './pages/PlatformAdminDashboardPage';
+import PublicOrderPage from './pages/PublicOrderPage';
 import { useAuthStore } from './store/authStore';
 import { usePlatformAdminStore } from './store/platformAdminStore';
 
@@ -43,7 +46,9 @@ export default function App() {
         <Route path="/platform/login" element={<PlatformAdminLoginPage />} />
         <Route path="/platform/dashboard" element={<RequirePlatformAdmin><PlatformAdminDashboardPage /></RequirePlatformAdmin>} />
         <Route path="/platform" element={<Navigate to="/platform/dashboard" replace />} />
+        <Route path="/order/:slug" element={<PublicOrderPage />} />
         <Route element={<RequireAuth><MainLayout /></RequireAuth>}>
+          <Route path="/orders" element={<Navigate to="/floorview" replace />} />
           <Route path="/order-builder" element={
             <RequireRole roles={['OWNER', 'MANAGER']}>
               <POSPage />
@@ -51,6 +56,8 @@ export default function App() {
           } />
           <Route path="/pos" element={<Navigate to="/order-builder" replace />} />
           <Route path="/floorview" element={<FloorViewPage />} />
+          <Route path="/my-activity" element={<MyActivityPage />} />
+          <Route path="/my-activity/details/:metric" element={<MyActivityDetailPage />} />
           <Route path="/kds" element={
             <RequireRole roles={['OWNER', 'MANAGER', 'KITCHEN', 'SERVER', 'BARTENDER']}>
               <KDSPage />

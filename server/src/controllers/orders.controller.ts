@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 import { generateOrderNumber } from '../utils/helpers';
 import { emitOrderUpdate, emitKDSUpdate } from '../services/websocket.service';
 import { auditService } from '../services/audit.service';
+import { ORDER_TYPE_SETTING_KEYS, getEnabledOrderTypeMap } from '../config/orderTypes';
 
 const ORDER_INCLUDE = {
   table: true,
@@ -119,6 +120,12 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
       notes: z.string().optional(),
     });
     const data = schema.parse(req.body);
+    const orderTypeSettings = await prisma.setting.findMany({
+      where: { organizationId: req.user!.organizationId, key: { in: [...ORDER_TYPE_SETTING_KEYS] } },
+      select: { key: true, value: true },
+    });
+    const orderTypeMap = getEnabledOrderTypeMap(Object.fromEntries(orderTypeSettings.map((setting) => [setting.key, setting.value])));
+    if (!orderTypeMap[data.type]) throw new AppError(400, 'That order type is disabled');
 
     // Validate table availability
     if (data.tableId) {

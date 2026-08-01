@@ -442,7 +442,10 @@ model Customer {
   firstName      String
   lastName       String?
   email          String?
+  password       String?
   phone          String?
+  emailOptIn     Boolean  @default(true)
+  textOptIn      Boolean  @default(true)
   points         Int      @default(0)
   notes          String?
   createdAt      DateTime @default(now())

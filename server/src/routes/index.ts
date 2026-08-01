@@ -13,15 +13,18 @@ import { shiftsRoutes } from './shifts.routes';
 import { settingsRoutes } from './settings.routes';
 import { printerRoutes } from './printers.routes';
 import { auditRoutes } from './audit.routes';
+import { activityRoutes } from './activity.routes';
 import { billingRoutes } from './billing.routes';
 import { platformAuthRoutes } from './platformAuth.routes';
 import { platformRoutes } from './platform.routes';
+import { publicOrderingRoutes } from './publicOrdering.routes';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/platform/auth', platformAuthRoutes);
 apiRouter.use('/platform/admin', platformRoutes);
+apiRouter.use('/public', publicOrderingRoutes);
 apiRouter.use('/billing', billingRoutes);
 apiRouter.use('/tables', tablesRoutes);
 apiRouter.use('/orders', ordersRoutes);
@@ -36,3 +39,4 @@ apiRouter.use('/shifts', shiftsRoutes);
 apiRouter.use('/settings', settingsRoutes);
 apiRouter.use('/printers', printerRoutes);
 apiRouter.use('/audit', auditRoutes);
+apiRouter.use('/activity', activityRoutes);

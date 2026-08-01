@@ -17,11 +17,12 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const NUMPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
+type SelectedEmployee = Pick<User, 'id' | 'role' | 'firstName' | 'lastName' | 'username'>;
 
 export default function LockScreen() {
   const { login } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<SelectedEmployee | null>(null);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
 

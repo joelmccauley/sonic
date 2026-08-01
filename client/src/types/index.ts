@@ -179,6 +179,8 @@ export interface Customer {
   lastName?: string;
   email?: string;
   phone?: string;
+  emailOptIn: boolean;
+  textOptIn: boolean;
   points: number;
   notes?: string;
   createdAt: string;

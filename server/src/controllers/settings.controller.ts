@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { prisma } from '../config/database';
+import { basePrisma, prisma } from '../config/database';
 import { requireOrganizationId } from '../config/tenantContext';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { AppError } from '../middleware/errorHandler';
+import { ORDER_TYPE_SETTING_KEYS, hasAtLeastOneEnabledOrderType } from '../config/orderTypes';
 
 // ── Logo upload ───────────────────────────────────────────────────────────
 const uploadsDir = path.join(__dirname, '../../uploads');
@@ -52,7 +54,24 @@ export async function getSettings(_req: Request, res: Response, next: NextFuncti
 
 export async function getPublicSettings(_req: Request, res: Response, next: NextFunction) {
   try {
-    const PUBLIC_KEYS = ['restaurant_name', 'address', 'phone', 'currency', 'timezone', 'receipt_footer', 'logo_url'];
+    const PUBLIC_KEYS = [
+      'restaurant_name',
+      'address',
+      'phone',
+      'currency',
+      'timezone',
+      'receipt_footer',
+      'logo_url',
+      'storefront_background_color',
+      'storefront_surface_color',
+      'storefront_surface_alt_color',
+      'storefront_primary_color',
+      'storefront_accent_color',
+      'storefront_border_color',
+      'storefront_muted_text_color',
+      'storefront_text_color',
+      ...ORDER_TYPE_SETTING_KEYS,
+    ];
     const settings = await prisma.setting.findMany({ where: { key: { in: PUBLIC_KEYS } } });
     res.json(Object.fromEntries(settings.map((s) => [s.key, s.value])));
   } catch (err) {
@@ -64,6 +83,19 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
   try {
     const data = z.record(z.string()).parse(req.body);
     const organizationId = requireOrganizationId();
+    const existingOrderTypes = await prisma.setting.findMany({
+      where: { organizationId, key: { in: [...ORDER_TYPE_SETTING_KEYS] } },
+      select: { key: true, value: true },
+    });
+    const nextOrderTypeSettings: Record<string, string | undefined> = Object.fromEntries(
+      existingOrderTypes.map((setting) => [setting.key, setting.value])
+    );
+    for (const key of ORDER_TYPE_SETTING_KEYS) {
+      if (data[key] !== undefined) nextOrderTypeSettings[key] = data[key];
+    }
+    if (!hasAtLeastOneEnabledOrderType(nextOrderTypeSettings)) {
+      throw new AppError(400, 'At least one order type must remain enabled');
+    }
     await Promise.all(
       Object.entries(data).map(([key, value]) =>
         prisma.setting.upsert({
@@ -75,6 +107,28 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
     );
     const settings = await prisma.setting.findMany({ orderBy: { key: 'asc' } });
     res.json(Object.fromEntries(settings.map((s) => [s.key, s.value])));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getStoreStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const organizationId = requireOrganizationId();
+    const org = await basePrisma.organization.findUnique({ where: { id: organizationId }, select: { isActive: true } });
+    if (!org) throw new Error('Organization not found');
+    res.json({ isActive: org.isActive });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateStoreStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const organizationId = requireOrganizationId();
+    const { isActive } = z.object({ isActive: z.boolean() }).parse(req.body);
+    const org = await basePrisma.organization.update({ where: { id: organizationId }, data: { isActive }, select: { isActive: true } });
+    res.json({ isActive: org.isActive });
   } catch (err) {
     next(err);
   }

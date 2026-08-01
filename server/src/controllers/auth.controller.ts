@@ -342,9 +342,24 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function logout(_req: Request, res: Response) {
-  // JWT is stateless; client discards token
-  res.json({ message: 'Logged out successfully' });
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    const activeShift = await prisma.shift.findFirst({
+      where: { userId: req.user!.userId, clockOut: null },
+    });
+
+    if (activeShift) {
+      await prisma.shift.update({
+        where: { id: activeShift.id },
+        data: { clockOut: new Date() },
+      });
+    }
+
+    // JWT is stateless; client discards token
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    next(err);
+  }
 }
 
 // ── Public: look up a store by slug + return staff list for PIN login ────────

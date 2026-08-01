@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { settingsApi } from '@/api/settings.api';
 import { extractError } from '@/api/client';
+import { ORDER_TYPE_SETTINGS } from '@/config/orderTypes';
 
 const SETTINGS_KEYS = [
   { key: 'restaurant_name', label: 'Restaurant Name', type: 'text' },
@@ -24,13 +25,27 @@ const SETTINGS_KEYS = [
   { key: 'loyalty_points_rate', label: 'Loyalty Points per Dollar', type: 'number' },
 ];
 
+const STOREFRONT_THEME_KEYS = [
+  { key: 'storefront_background_color', label: 'Storefront Background', defaultValue: '#05070d' },
+  { key: 'storefront_surface_color', label: 'Storefront Surface', defaultValue: '#111722' },
+  { key: 'storefront_surface_alt_color', label: 'Storefront Surface Alt', defaultValue: '#0e1420' },
+  { key: 'storefront_primary_color', label: 'Storefront Primary', defaultValue: '#7db4e8' },
+  { key: 'storefront_accent_color', label: 'Storefront Accent', defaultValue: '#1d5fae' },
+  { key: 'storefront_border_color', label: 'Storefront Border', defaultValue: '#1f2a38' },
+  { key: 'storefront_muted_text_color', label: 'Storefront Muted Text', defaultValue: '#9fb4cc' },
+  { key: 'storefront_text_color', label: 'Storefront Text', defaultValue: '#e8eef7' },
+];
+
 export default function GeneralSettings() {
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [storeActive, setStoreActive] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isOrderTypeEnabled = (key: string) => values[key] !== 'false';
+  const enabledOrderTypeCount = ORDER_TYPE_SETTINGS.filter(({ key }) => isOrderTypeEnabled(key)).length;
 
   const { isLoading } = useQuery({
     queryKey: ['settings'],
@@ -41,10 +56,20 @@ export default function GeneralSettings() {
     }),
   });
 
+  useQuery({
+    queryKey: ['store-status'],
+    queryFn: () => settingsApi.getStoreStatus().then((r) => {
+      setStoreActive(r.data.isActive);
+      return r.data;
+    }),
+  });
+
   const mutation = useMutation({
     mutationFn: () => settingsApi.update(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-public'] });
+      queryClient.invalidateQueries({ queryKey: ['public-storefront'] });
       enqueueSnackbar('Settings saved', { variant: 'success' });
     },
     onError: (e) => enqueueSnackbar(extractError(e), { variant: 'error' }),
@@ -55,6 +80,7 @@ export default function GeneralSettings() {
     onSuccess: ({ data }) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings-public'] });
+      queryClient.invalidateQueries({ queryKey: ['public-storefront'] });
       setValues((v) => ({ ...v, logo_url: data.url }));
       setLogoPreview(null);
       enqueueSnackbar('Logo updated', { variant: 'success' });
@@ -67,9 +93,19 @@ export default function GeneralSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings-public'] });
+      queryClient.invalidateQueries({ queryKey: ['public-storefront'] });
       setValues((v) => ({ ...v, logo_url: '' }));
       setLogoPreview(null);
       enqueueSnackbar('Logo removed — SonicPOS logo restored', { variant: 'success' });
+    },
+    onError: (e) => enqueueSnackbar(extractError(e), { variant: 'error' }),
+  });
+
+  const storeStatusMutation = useMutation({
+    mutationFn: (next: boolean) => settingsApi.updateStoreStatus(next),
+    onSuccess: (_, next) => {
+      setStoreActive(next);
+      enqueueSnackbar(next ? 'Store reopened' : 'Store paused', { variant: 'success' });
     },
     onError: (e) => enqueueSnackbar(extractError(e), { variant: 'error' }),
   });
@@ -140,6 +176,84 @@ export default function GeneralSettings() {
             </Typography>
           </Box>
         </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 3, bgcolor: '#1e1e1e', maxWidth: 720, mb: 3 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600}>Store Status</Typography>
+            <Typography variant="caption" color="text.secondary">Turn online ordering and tenant access on or off from here.</Typography>
+          </Box>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={storeActive}
+                onChange={(_, checked) => storeStatusMutation.mutate(checked)}
+                disabled={storeStatusMutation.isPending}
+              />
+            }
+            label={storeActive ? 'Open' : 'Closed'}
+          />
+        </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 3, bgcolor: '#1e1e1e', maxWidth: 720, mb: 3 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>Order Types</Typography>
+        <Grid container spacing={2}>
+          {ORDER_TYPE_SETTINGS.map(({ key, label, emoji }) => {
+            const enabled = isOrderTypeEnabled(key);
+            const disableSwitch = enabled && enabledOrderTypeCount === 1;
+            return (
+              <Grid item xs={12} sm={6} key={key}>
+                <Box sx={{ p: 1.5, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(255,255,255,0.02)' }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={enabled}
+                        disabled={disableSwitch}
+                        onChange={(_, checked) => set(key, String(checked))}
+                      />
+                    }
+                    label={`${emoji} ${label}`}
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ pl: 6 }}>
+                    {key === 'enable_dine_in' && 'Used for table service and dine-in orders.'}
+                    {key === 'enable_to_go' && 'Used for pickup and carryout orders.'}
+                    {key === 'enable_delivery' && 'Used for delivery orders.'}
+                    {key === 'enable_bar' && 'Used for bar tabs and counter service.'}
+                  </Typography>
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
+        <Typography variant="caption" color="text.secondary" display="block" mt={2}>
+          At least one order type must remain active.
+        </Typography>
+      </Paper>
+
+      <Paper sx={{ p: 3, bgcolor: '#1e1e1e', maxWidth: 720, mb: 3 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>Storefront Colors</Typography>
+        <Grid container spacing={2}>
+          {STOREFRONT_THEME_KEYS.map(({ key, label, defaultValue }) => (
+            <Grid item xs={12} sm={6} key={key}>
+              <Stack spacing={1}>
+                <Typography variant="body2" fontWeight={600}>{label}</Typography>
+                <TextField
+                  type="color"
+                  value={values[key] || defaultValue}
+                  onChange={(e) => set(key, e.target.value)}
+                  fullWidth
+                  size="small"
+                  inputProps={{ 'aria-label': label }}
+                />
+              </Stack>
+            </Grid>
+          ))}
+        </Grid>
+        <Typography variant="caption" color="text.secondary" display="block" mt={2}>
+          These colors are applied to the public online ordering storefront.
+        </Typography>
       </Paper>
 
       <Paper sx={{ p: 3, bgcolor: '#1e1e1e', maxWidth: 720 }}>

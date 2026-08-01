@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
-  Box, Grid, Typography, Chip, Stack, TextField, InputAdornment,
-  Paper, Button, Skeleton, Tooltip, IconButton, Badge,
+  Box, Grid, Typography, Stack, TextField, InputAdornment,
+  Paper, Button, Skeleton,
 } from '@mui/material';
-import { Search, Star, LocalOffer, Block } from '@mui/icons-material';
+import { Search, Star, Block } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { menuApi } from '@/api/menu.api';
 import type { MenuItem, MenuCategory } from '@/types';
@@ -96,31 +96,70 @@ export default function MenuGrid({ onItemSelect }: Props) {
         />
       </Box>
 
-      {/* Category tabs */}
-      <Box sx={{ px: 2, pb: 1, display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-        <Chip
-          label="All"
-          clickable
+      {/* Category rail */}
+      <Box
+        sx={{
+          px: 2,
+          pb: 1.25,
+          display: 'flex',
+          gap: 1,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          scrollSnapType: 'x proximity',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(255,255,255,0.16) transparent',
+          '&::-webkit-scrollbar': { height: 8 },
+          '&::-webkit-scrollbar-track': { background: 'transparent' },
+          '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.16)', borderRadius: 999 },
+        }}
+      >
+        <Button
           onClick={() => setSelectedCategory(null)}
-          variant={selectedCategory === null ? 'filled' : 'outlined'}
-          color={selectedCategory === null ? 'primary' : 'default'}
-          size="small"
-        />
-        {categories.map((cat) => (
-          <Chip
-            key={cat.id}
-            label={`${cat.icon ?? ''} ${cat.name}`}
-            clickable
-            onClick={() => setSelectedCategory(cat.id)}
-            variant={selectedCategory === cat.id ? 'filled' : 'outlined'}
-            size="small"
-            sx={{
-              borderColor: selectedCategory === cat.id ? cat.color : 'rgba(255,255,255,0.1)',
-              bgcolor: selectedCategory === cat.id ? cat.color + '33' : 'transparent',
-              color: selectedCategory === cat.id ? cat.color : 'text.secondary',
-            }}
-          />
-        ))}
+          variant={selectedCategory === null ? 'contained' : 'outlined'}
+          sx={{
+            flexShrink: 0,
+            minHeight: 44,
+            minWidth: 88,
+            px: 2,
+            borderColor: 'rgba(255,255,255,0.12)',
+            scrollSnapAlign: 'start',
+          }}
+        >
+          All
+        </Button>
+        {categories.map((cat) => {
+          const selected = selectedCategory === cat.id;
+          return (
+            <Button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              variant={selected ? 'contained' : 'outlined'}
+              sx={{
+                flexShrink: 0,
+                minHeight: 44,
+                minWidth: 132,
+                px: 2,
+                justifyContent: 'flex-start',
+                gap: 1,
+                borderColor: selected ? cat.color : 'rgba(255,255,255,0.12)',
+                bgcolor: selected ? cat.color : 'rgba(255,255,255,0.02)',
+                color: selected ? '#fff' : 'text.secondary',
+                '&:hover': {
+                  borderColor: cat.color || 'primary.main',
+                  bgcolor: selected ? cat.color : 'rgba(255,255,255,0.05)',
+                },
+                scrollSnapAlign: 'start',
+              }}
+            >
+              <Box component="span" sx={{ fontSize: '1rem', lineHeight: 1 }}>
+                {cat.icon || '•'}
+              </Box>
+              <Box component="span" sx={{ whiteSpace: 'nowrap' }}>
+                {cat.name}
+              </Box>
+            </Button>
+          );
+        })}
       </Box>
 
       {/* Items grid */}

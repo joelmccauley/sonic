@@ -3,11 +3,13 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Stack, Typography, ToggleButtonGroup, ToggleButton, CircularProgress, Box,
 } from '@mui/material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { ordersApi } from '@/api/orders.api';
+import { settingsApi } from '@/api/settings.api';
 import { extractError } from '@/api/client';
 import type { Table, Order, OrderType } from '@/types';
+import { ORDER_TYPE_SETTINGS } from '@/config/orderTypes';
 
 interface Props {
   open: boolean;
@@ -20,6 +22,18 @@ interface Props {
 export default function NewOrderDialog({ open, table, onClose, onSuccess }: Props) {
   const { enqueueSnackbar } = useSnackbar();
   const qc = useQueryClient();
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.getAll().then((r) => r.data),
+    enabled: open,
+  });
+
+  const enabledOrderTypes = React.useMemo(
+    () => ORDER_TYPE_SETTINGS.filter(({ key }) => settings?.[key] !== 'false'),
+    [settings],
+  );
+  const preferredOrderType = table ? 'DINE_IN' : 'TO_GO';
+  const fallbackOrderType = enabledOrderTypes.find((option) => option.type === preferredOrderType)?.type ?? enabledOrderTypes[0]?.type ?? 'TO_GO';
 
   const [orderType, setOrderType]       = useState<OrderType>('DINE_IN');
   const [guestCount, setGuestCount]     = useState('1');
@@ -29,12 +43,18 @@ export default function NewOrderDialog({ open, table, onClose, onSuccess }: Prop
   // Reset state whenever the dialog opens or the table changes
   useEffect(() => {
     if (open) {
-      setOrderType(table ? 'DINE_IN' : 'TO_GO');
+      setOrderType(fallbackOrderType);
       setGuestCount('1');
       setCustomerName('');
       setCustomerPhone('');
     }
-  }, [open, table?.id]);
+  }, [open, table?.id, fallbackOrderType]);
+
+  useEffect(() => {
+    if (!enabledOrderTypes.some((option) => option.type === orderType) && enabledOrderTypes.length > 0) {
+      setOrderType(fallbackOrderType);
+    }
+  }, [enabledOrderTypes, orderType, fallbackOrderType]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -84,10 +104,9 @@ export default function NewOrderDialog({ open, table, onClose, onSuccess }: Prop
               fullWidth
               size="small"
             >
-              <ToggleButton value="DINE_IN">🍽 Dine In</ToggleButton>
-              <ToggleButton value="TO_GO">🛍 To Go</ToggleButton>
-              <ToggleButton value="DELIVERY">🚚 Delivery</ToggleButton>
-              <ToggleButton value="BAR">🍺 Bar</ToggleButton>
+              {enabledOrderTypes.map(({ type, emoji, label }) => (
+                <ToggleButton key={type} value={type}>{emoji} {label}</ToggleButton>
+              ))}
             </ToggleButtonGroup>
           </Box>
           {orderType === 'DINE_IN' && (

@@ -266,25 +266,46 @@ export default function FloorViewPage() {
   }, []);
 
   const handleSvgPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    // Record start position but do NOT capture yet — let table onClick fire on short taps
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.pointerType !== 'mouse') e.preventDefault();
+    // Record start position but do NOT capture yet — let table onClick fire on short taps.
     panRef.current = { startX: e.clientX, startY: e.clientY, origX: pan.x, origY: pan.y, captured: false, pointerId: e.pointerId };
   }, [pan]);
 
   const handleSvgPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!panRef.current) return;
+    if (!panRef.current || panRef.current.pointerId !== e.pointerId) return;
+    if (e.pointerType !== 'mouse') e.preventDefault();
     const dx = e.clientX - panRef.current.startX;
     const dy = e.clientY - panRef.current.startY;
-    // Only start panning once the pointer has moved past the drag threshold
+    // Only start panning once the pointer has moved past the drag threshold.
     if (!panRef.current.captured) {
-      if (Math.hypot(dx, dy) < 6) return;
+      const dragThreshold = e.pointerType === 'mouse' ? 6 : 2;
+      if (Math.hypot(dx, dy) < dragThreshold) return;
       panRef.current.captured = true;
-      (e.currentTarget as HTMLElement).setPointerCapture(panRef.current.pointerId);
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(panRef.current.pointerId);
+      } catch {
+        // Ignore capture failures; pan can still work while pointer stays on target.
+      }
     }
     setPan({ x: panRef.current.origX + dx, y: panRef.current.origY + dy });
   }, []);
 
-  const handleSvgPointerUp = useCallback(() => { panRef.current = null; }, []);
+  const handleSvgPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!panRef.current || panRef.current.pointerId !== e.pointerId) return;
+    if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    }
+    panRef.current = null;
+  }, []);
+
+  const handleSvgPointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!panRef.current || panRef.current.pointerId !== e.pointerId) return;
+    if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    }
+    panRef.current = null;
+  }, []);
 
   const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
@@ -498,104 +519,129 @@ export default function FloorViewPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <Box sx={{
-        px: 3, py: 1.5, flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 2,
+        px: { xs: 1.5, sm: 2, md: 3 },
+        py: { xs: 1, md: 1.5 },
+        flexShrink: 0,
         bgcolor: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
       }}>
-        <Typography variant="h6" fontWeight={800} sx={{ fontSize: '0.95rem', letterSpacing: 0.5 }}>
-          Floor View
-        </Typography>
-
-        <Stack direction="row" spacing={0.5} sx={{ ml: 0.5 }}>
-          <Button
-            size="small"
-            variant={viewMode === 'floor' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('floor')}
-            sx={{ minWidth: 94, fontSize: '0.7rem', py: 0.25 }}
+        <Stack spacing={1.25}>
+          <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={1.25}
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            justifyContent="space-between"
           >
-            Floor Map
-          </Button>
-          <Button
-            size="small"
-            variant={viewMode === 'my' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('my')}
-            sx={{ minWidth: 94, fontSize: '0.7rem', py: 0.25 }}
-          >
-            My Tables
-          </Button>
-        </Stack>
+            <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Typography variant="h6" fontWeight={800} sx={{ fontSize: { xs: '1.05rem', md: '1.1rem' }, letterSpacing: 0.4 }}>
+                Floor View
+              </Typography>
+              <Stack direction="row" spacing={0.75}>
+                <Button
+                  variant={viewMode === 'floor' ? 'contained' : 'outlined'}
+                  onClick={() => setViewMode('floor')}
+                  sx={{ minWidth: { xs: 108, md: 118 }, minHeight: 38, fontSize: { xs: '0.82rem', md: '0.9rem' } }}
+                >
+                  Floor Map
+                </Button>
+                <Button
+                  variant={viewMode === 'my' ? 'contained' : 'outlined'}
+                  onClick={() => setViewMode('my')}
+                  sx={{ minWidth: { xs: 108, md: 118 }, minHeight: 38, fontSize: { xs: '0.82rem', md: '0.9rem' } }}
+                >
+                  My Tables
+                </Button>
+              </Stack>
+            </Stack>
 
-        <Chip
-          label={`${occupiedCount} occupied`}
-          size="small"
-          sx={{ bgcolor: 'rgba(196,43,28,0.15)', color: '#ff7b6b', border: '1px solid rgba(196,43,28,0.3)', fontWeight: 700 }}
-        />
-        <Chip
-          label={`${availableCount} available`}
-          size="small"
-          sx={{ bgcolor: 'rgba(87,163,0,0.15)', color: '#a3e05b', border: '1px solid rgba(87,163,0,0.3)', fontWeight: 700 }}
-        />
-
-        {(Object.entries(STATUS_COLOR) as [TableStatus, string][]).map(([status, color]) => (
-          <Stack key={status} direction="row" alignItems="center" spacing={0.6}>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, boxShadow: `0 0 4px ${color}88` }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
-              {STATUS_LABEL[status]}
-            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Chip
+                label={`${occupiedCount} occupied`}
+                sx={{ bgcolor: 'rgba(196,43,28,0.15)', color: '#ff7b6b', border: '1px solid rgba(196,43,28,0.3)', fontWeight: 700 }}
+              />
+              <Chip
+                label={`${availableCount} available`}
+                sx={{ bgcolor: 'rgba(87,163,0,0.15)', color: '#a3e05b', border: '1px solid rgba(87,163,0,0.3)', fontWeight: 700 }}
+              />
+            </Stack>
           </Stack>
-        ))}
 
-        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>
-          Click any table for details
-        </Typography>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+              {(Object.entries(STATUS_COLOR) as [TableStatus, string][]).map(([status, color]) => (
+                <Stack key={status} direction="row" alignItems="center" spacing={0.7}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, boxShadow: `0 0 4px ${color}88` }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.72rem', md: '0.78rem' } }}>
+                    {STATUS_LABEL[status]}
+                  </Typography>
+                </Stack>
+              ))}
+            </Box>
 
-        <Box sx={{ flex: 1 }} />
-
-        {/* Zoom controls */}
-        {viewMode === 'floor' && (
-          <Stack direction="row" alignItems="center" spacing={0.25}>
-            <Tooltip title="Zoom out">
-              <IconButton size="small" onClick={() => setZoom((z) => clampZoom(z / 1.25))}>
-                <ZoomOut fontSize="small" />
-              </IconButton>
-            </Tooltip>
             <Typography
               variant="caption"
-              sx={{ minWidth: 38, textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
-              onClick={resetView}
+              color="text.disabled"
+              sx={{ fontSize: '0.75rem', display: { xs: 'none', lg: 'block' }, ml: { lg: 0.5 } }}
             >
-              {Math.round(zoom * 100)}%
+              Click any table for details
             </Typography>
-            <Tooltip title="Zoom in">
-              <IconButton size="small" onClick={() => setZoom((z) => clampZoom(z * 1.25))}>
-                <ZoomIn fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Reset view">
-              <IconButton size="small" onClick={resetView}>
-                <CenterFocusStrong fontSize="small" />
-              </IconButton>
-            </Tooltip>
+
+            <Box sx={{ flex: 1 }} />
+
+            <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+              {/* Zoom controls */}
+              {viewMode === 'floor' && (
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <Tooltip title="Zoom out">
+                    <IconButton onClick={() => setZoom((z) => clampZoom(z / 1.25))}>
+                      <ZoomOut />
+                    </IconButton>
+                  </Tooltip>
+                  <Typography
+                    variant="caption"
+                    sx={{ minWidth: 44, textAlign: 'center', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={resetView}
+                  >
+                    {Math.round(zoom * 100)}%
+                  </Typography>
+                  <Tooltip title="Zoom in">
+                    <IconButton onClick={() => setZoom((z) => clampZoom(z * 1.25))}>
+                      <ZoomIn />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Reset view">
+                    <IconButton onClick={resetView}>
+                      <CenterFocusStrong />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              )}
+
+              <Tooltip title="Refresh tables">
+                <IconButton onClick={() => queryClient.invalidateQueries({ queryKey: ['tables-floorview'] })}>
+                  <Refresh />
+                </IconButton>
+              </Tooltip>
+
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <LiveClock />
+              </Box>
+
+              <Tooltip title={connected ? 'Live — connected' : 'Reconnecting…'}>
+                <Box sx={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  bgcolor: connected ? '#57a300' : '#c42b1c',
+                  boxShadow: connected ? '0 0 8px #57a300aa' : 'none',
+                  flexShrink: 0,
+                }} />
+              </Tooltip>
+            </Stack>
           </Stack>
-        )}
-
-        <Tooltip title="Refresh tables">
-          <IconButton size="small" onClick={() => queryClient.invalidateQueries({ queryKey: ['tables-floorview'] })}>
-            <Refresh fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <LiveClock />
-
-        <Tooltip title={connected ? 'Live — connected' : 'Reconnecting…'}>
-          <Box sx={{
-            width: 9, height: 9, borderRadius: '50%',
-            bgcolor: connected ? '#57a300' : '#c42b1c',
-            boxShadow: connected ? '0 0 8px #57a300aa' : 'none',
-            flexShrink: 0,
-          }} />
-        </Tooltip>
+        </Stack>
       </Box>
 
       {/* ── Section tabs ───────────────────────────────────────────────────── */}
@@ -610,7 +656,16 @@ export default function FloorViewPage() {
             onChange={(_, v) => setSection(v)}
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: '0.75rem', textTransform: 'none' } }}
+            sx={{
+              minHeight: 44,
+              '& .MuiTab-root': {
+                minHeight: 44,
+                py: 0,
+                px: 1.5,
+                fontSize: { xs: '0.82rem', md: '0.9rem' },
+                textTransform: 'none',
+              },
+            }}
           >
             <Tab label="All" value="All" />
             {(sections as string[]).map((s) => <Tab key={s} label={s} value={s} />)}
@@ -623,10 +678,19 @@ export default function FloorViewPage() {
       {/* ── SVG canvas ─────────────────────────────────────────────────────── */}
       <Box
         ref={svgBoxRef}
-        sx={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', cursor: panRef.current ? 'grabbing' : 'grab' }}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          position: 'relative',
+          cursor: panRef.current ? 'grabbing' : 'grab',
+          touchAction: 'none',
+          overscrollBehavior: 'contain',
+        }}
         onPointerDown={handleSvgPointerDown}
         onPointerMove={handleSvgPointerMove}
         onPointerUp={handleSvgPointerUp}
+        onPointerCancel={handleSvgPointerCancel}
       >
         {isLoading ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

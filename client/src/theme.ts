@@ -32,15 +32,16 @@ export const theme = createTheme({
   },
   typography: {
     fontFamily: '"Segoe UI", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontSize: 16,
     h4: { fontWeight: 600, letterSpacing: '-0.01em' },
     h5: { fontWeight: 600, letterSpacing: '-0.01em' },
     h6: { fontWeight: 600 },
     subtitle1: { fontWeight: 600 },
     subtitle2: { fontWeight: 600 },
     button: { textTransform: 'none', fontWeight: 400, letterSpacing: 0 },
-    body1: { fontSize: '0.875rem' },
-    body2: { fontSize: '0.8125rem' },
-    caption: { fontSize: '0.75rem' },
+    body1: { fontSize: '1rem' },
+    body2: { fontSize: '0.9375rem' },
+    caption: { fontSize: '0.875rem' },
   },
   shape: { borderRadius: 4 },
   components: {
@@ -49,12 +50,12 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 4,
-          padding: '6px 16px',
-          fontSize: '0.875rem',
+          padding: '8px 18px',
+          fontSize: '1rem',
           fontWeight: 400,
         },
-        sizeLarge: { padding: '10px 20px', fontSize: '0.9375rem' },
-        sizeSmall: { padding: '3px 10px', fontSize: '0.8125rem' },
+        sizeLarge: { padding: '12px 22px', fontSize: '1.0625rem' },
+        sizeSmall: { padding: '5px 12px', fontSize: '0.875rem' },
         contained: { boxShadow: 'none' },
         containedPrimary: {
           '&:hover': { backgroundColor: '#106ebe', boxShadow: 'none' },
@@ -87,8 +88,8 @@ export const theme = createTheme({
     },
     MuiChip: {
       styleOverrides: {
-        root: { borderRadius: 4, fontWeight: 400, fontSize: '0.75rem' },
-        sizeSmall: { height: 20 },
+        root: { borderRadius: 4, fontWeight: 400, fontSize: '0.875rem' },
+        sizeSmall: { height: 24 },
       },
     },
     MuiDrawer: {
@@ -102,7 +103,7 @@ export const theme = createTheme({
           '& .MuiTableCell-root': {
             fontWeight: 600,
             textTransform: 'none',
-            fontSize: '0.8125rem',
+            fontSize: '0.9375rem',
             letterSpacing: 0,
             color: '#adadad',
             borderBottom: '1px solid rgba(255,255,255,0.12)',
@@ -112,7 +113,7 @@ export const theme = createTheme({
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.875rem' },
+        root: { borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '1rem' },
       },
     },
     MuiTableRow: {
@@ -124,20 +125,21 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 4,
+          minHeight: 46,
           '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
           '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
         },
       },
     },
     MuiInputLabel: {
-      styleOverrides: { root: { fontSize: '0.875rem' } },
+      styleOverrides: { root: { fontSize: '1rem' } },
     },
     MuiToggleButton: {
       styleOverrides: {
         root: {
           borderRadius: 4,
           textTransform: 'none',
-          fontSize: '0.8125rem',
+          fontSize: '0.9375rem',
         },
       },
     },

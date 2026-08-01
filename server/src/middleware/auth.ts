@@ -19,11 +19,18 @@ export interface PlatformJwtPayload {
   email: string;
 }
 
+export interface CustomerJwtPayload {
+  scope: 'customer_order';
+  customerId: number;
+  organizationId: number;
+}
+
 declare global {
   namespace Express {
     interface Request {
       user?: JwtPayload;
       platformAdmin?: PlatformJwtPayload;
+      customer?: CustomerJwtPayload;
     }
   }
 }
@@ -89,6 +96,27 @@ export function authenticatePlatform(req: Request, res: Response, next: NextFunc
     }
     req.platformAdmin = payload;
     next();
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+export function authenticateCustomer(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'No token provided' });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const payload = jwt.verify(token, env.JWT_SECRET) as CustomerJwtPayload;
+    if (payload.scope !== 'customer_order' || !payload.customerId || !payload.organizationId) {
+      res.status(401).json({ error: 'Invalid customer session' });
+      return;
+    }
+    req.customer = payload;
+    tenantStorage.run({ organizationId: payload.organizationId }, () => next());
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }

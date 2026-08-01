@@ -13,6 +13,7 @@ import GeneralSettings from '@/components/admin/GeneralSettings';
 import TableManagement from '@/components/admin/TableManagement';
 import FloorPlanEditor from '@/components/admin/FloorPlanEditor';
 import BillingManagement from '@/components/admin/BillingManagement';
+import CustomerManagement from '@/components/admin/CustomerManagement';
 
 export default function AdminPage() {
   return (
@@ -26,6 +27,7 @@ export default function AdminPage() {
         <Route path="shifts" element={<ShiftManagement />} />
         <Route path="inventory" element={<InventoryManagement />} />
         <Route path="discounts" element={<DiscountManagement />} />
+        <Route path="customers" element={<CustomerManagement />} />
         <Route path="reports" element={<ReportsView />} />
         <Route path="printers" element={<PrinterSettings />} />
         <Route path="audit" element={<AuditLogView />} />

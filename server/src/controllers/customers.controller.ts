@@ -6,7 +6,11 @@ export async function getCustomers(req: Request, res: Response, next: NextFuncti
   try {
     const { limit = '50', offset = '0' } = req.query;
     const [customers, total] = await Promise.all([
-      prisma.customer.findMany({ orderBy: { firstName: 'asc' }, take: parseInt(String(limit)), skip: parseInt(String(offset)) }),
+      prisma.customer.findMany({
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+        take: parseInt(String(limit)),
+        skip: parseInt(String(offset)),
+      }),
       prisma.customer.count(),
     ]);
     res.json({ customers, total });
@@ -55,6 +59,8 @@ export async function createCustomer(req: Request, res: Response, next: NextFunc
       lastName: z.string().optional(),
       email: z.string().email().optional(),
       phone: z.string().optional(),
+      emailOptIn: z.boolean().optional(),
+      textOptIn: z.boolean().optional(),
       notes: z.string().optional(),
     });
     const data = schema.parse(req.body);
@@ -73,6 +79,8 @@ export async function updateCustomer(req: Request, res: Response, next: NextFunc
       lastName: z.string().optional(),
       email: z.string().email().optional(),
       phone: z.string().optional(),
+      emailOptIn: z.boolean().optional(),
+      textOptIn: z.boolean().optional(),
       notes: z.string().optional(),
     });
     const data = schema.parse(req.body);
